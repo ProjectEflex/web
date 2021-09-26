@@ -36,7 +36,8 @@ async function coldBoot(newConnection, userId, statusCallback, logsCallback) {
 }
 
 export async function initializeSocket(userId, statusCallback, logsCallback) {
-    const SOCKET_URL = 'https://switcheon.com/api/userhub';
+    const BASE_URL = process.env.REACT_APP_BASE_URL;
+    const SOCKET_URL = `${BASE_URL}/api/userhub`;
     const newConnection = new signalR.HubConnectionBuilder()
         .withUrl(SOCKET_URL)
         .configureLogging(signalR.LogLevel.Information)
