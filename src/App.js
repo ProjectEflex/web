@@ -14,6 +14,7 @@ import {
 import { Formik } from 'formik';
 import moment from 'moment';
 import { makeFlatJSON } from './utils';
+import { initializeSocket } from './socket';
 import GlobalFilter from './GlobalFilter';
 import ErrorAlert from './ErrorAlert';
 import './App.css';
@@ -24,6 +25,8 @@ function App() {
 
   const [actualConfig, setActualConfig] = useState({});
   const [config, setConfig] = useState({});
+  const [socketLogs, setSocketLogs] = useState([]);
+  const [socketStatus, setSocketStatus] = useState();
   const [skipConfigKeys, setSkipConfigKeys] = useState([
     "boxIdBin",
     "boxIdText",
@@ -213,39 +216,74 @@ function App() {
     return '';
   }
 
+  function getSocketStatusHtml() {
+    let socketColor;
+    if (socketStatus === 'connected') {
+      socketColor = 'green';
+    } else if (socketStatus === 'disconnected') {
+      socketColor = 'red';
+    } else if (socketStatus === 'progress') {
+      socketColor = 'yellow';
+    } else {
+      socketColor = 'grey';
+    }
+    return <div style={{backgroundColor: socketColor}} className="socket-status-holder"></div>;
+  }
+
   function renderSummary() {
     return (
-      <div className="rounded border p-2 mb-2">
-        <h6> Summary </h6>
-        <Table striped bordered hover className="mb-0">
-          <tbody>
-            <tr>
-              <td>Home / Away</td>
-              <td>{ getHomeStatus() }</td>
-            </tr>
-            <tr>
-              <td>Energy Selection</td>
-              <td>{ actualConfig['energy_selection'] }</td>
-            </tr>
-            <tr>
-              <td>Battery Saver Selection</td>
-              <td>{ actualConfig['battery_saver_selection'] }</td>
-            </tr>
-            <tr>
-              <td>TOU Selection</td>
-              <td>{ actualConfig['tou_selection'] }</td>
-            </tr>
-            <tr>
-              <td>Demand Selection</td>
-              <td>{ actualConfig['demand_selection'] }</td>
-            </tr>
-            <tr>
-              <td>Overriden Loads</td>
-              <td>{ getOverrideValues() }</td>
-            </tr>
-          </tbody>
-        </Table>
-      </div>
+      <>
+        <div className="rounded border p-2 mb-2">
+          <h6> Summary </h6>
+          <Table striped bordered hover className="mb-0">
+            <tbody>
+              <tr>
+                <td>Home / Away</td>
+                <td>{ getHomeStatus() }</td>
+              </tr>
+              <tr>
+                <td>Energy Selection</td>
+                <td>{ actualConfig['energy_selection'] }</td>
+              </tr>
+              <tr>
+                <td>Battery Saver Selection</td>
+                <td>{ actualConfig['battery_saver_selection'] }</td>
+              </tr>
+              <tr>
+                <td>TOU Selection</td>
+                <td>{ actualConfig['tou_selection'] }</td>
+              </tr>
+              <tr>
+                <td>Demand Selection</td>
+                <td>{ actualConfig['demand_selection'] }</td>
+              </tr>
+              <tr>
+                <td>Overriden Loads</td>
+                <td>{ getOverrideValues() }</td>
+              </tr>
+            </tbody>
+          </Table>
+        </div>
+        <div className="rounded border p-2 mb-2 socket__viewer">
+          <h6> Socket Logs {getSocketStatusHtml()} </h6>
+          {socketLogs?.length > 0 ? <Table striped bordered hover className="mb-0" style={{wordBreak: "break-word"}}>
+            <thead>
+              <tr>
+                <th>Local Time</th>
+                <th>Logs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {socketLogs.map((socketLog, index) => (
+                <tr key={index}>
+                  <td>{socketLog.timestamp}</td>
+                  <td>{socketLog.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </Table> : <span>[]</span>}
+        </div>
+      </>
     )
   }
 
@@ -259,7 +297,8 @@ function App() {
               BoxIdBin: 'EeuTzQQVrVCeIQJCCmQAAw=='
             }}
             onSubmit={async (values) => {
-              getConfig(values.UserIdBin, values.BoxIdBin)
+              getConfig(values.UserIdBin, values.BoxIdBin);
+              await initializeSocket(values.UserIdBin, setSocketStatus, setSocketLogs);
             }}
           >
             {props => (
@@ -340,7 +379,7 @@ function App() {
           <Col sm={{order: 'last'}} md={{ span:6, order: 'first'}}>
             { renderGETConfigForm() }
           </Col>
-          <Col>
+          <Col sm={{order: 'last'}} md={{ span:6, order: 'first'}}>
             { renderSummary() }
           </Col>
         </Row>
